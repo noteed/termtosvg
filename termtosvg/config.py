@@ -16,6 +16,7 @@ DEFAULT_TEMPLATES_NAMES = [
     'putty.svg',
     'solarized_dark.svg',
     'solarized_light.svg',
+    'spiderman.svg',
     'terminal_app.svg',
     'ubuntu.svg',
     'window_frame_js.svg',

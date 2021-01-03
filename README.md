@@ -1,4 +1,22 @@
-**Note: As of June 2020 I do not have time to maintain termtosvg anymore and this repository is now read-only.**
+Note: the original termtosvg is no longer maintained since June 2020.
+
+About this fork:
+
+For live presentation, using the following command on my laptop (with a
+2560x1440 screen) results in a 91x24 terminal with nice borders:
+
+```
+$ kitty -o font_size=14 -o window_padding_width=45.0 -o enable_audio_bell=no
+```
+
+I have adapted termtosvg to generate similarly looking SVGs, i.e. 2560x1440
+frames with a border and big characters. The resulting PNGs or MP4s are almost
+pixel-perfect when compared to the above command. So this requires using `-g
+91x24`.
+
+I have added a new template based on the Spiderman color scheme that comes with
+Kitty.
+
 
 # termtosvg
 termtosvg is a Unix terminal recorder written in Python that renders your command

@@ -34,8 +34,23 @@ _BG_RECT_TAG_ATTRIBUTES = {
 BG_RECT_TAG = etree.Element('rect', _BG_RECT_TAG_ATTRIBUTES)
 
 # Default size for a character cell rendered as SVG.
-CELL_WIDTH = 8
-CELL_HEIGHT = 17
+CELL_WIDTH = 25
+CELL_HEIGHT = 48
+
+# Offset for the buffer lines and rectangles, resulting in a border.
+# This can probably be replaced by a transform on the main `screen` element.
+BORDER_TOP = 151
+BORDER_LEFT = 142
+
+# Hard-coded screen dimensions. This includes the above border. Set to a small
+# value if you just want the character cells without border.
+SCREEN_WIDTH = 2560
+SCREEN_HEIGHT = 1440
+
+# Without this, SVGs are rendered correctly, but their conversion to PNGs
+# result in a cursor a few pixels to low. This is used to push it a bit upwards
+# when we know we will convert to PNGs anyway.
+SVG_TO_PNG_HACK = -7
 
 # The number of character cells to leave when placing successive frames
 # so content does not bleed into adjacent frames
@@ -309,7 +324,8 @@ def _render_line(offset, row_number, row, cell_height, cell_width, definitions):
     # Add a reference to the definition of text_group_tag with a 'use' tag
     use_attributes = {
         '{{{}}}href'.format(XLINK_NS): '#{}'.format(group_id),
-        'y': str(offset + row_number * cell_height),
+        'x': str(BORDER_LEFT),
+        'y': str(offset + row_number * cell_height + BORDER_TOP),
     }
     tags.append(etree.Element('use', use_attributes))
 
@@ -318,8 +334,8 @@ def _render_line(offset, row_number, row, cell_height, cell_width, definitions):
 
 def _make_rect_tag(column, length, height, cell_width, cell_height, background_color):
     attributes = {
-        'x': str(column * cell_width),
-        'y': str(height),
+        'x': str(column * cell_width + BORDER_LEFT),
+        'y': str(height + BORDER_TOP + SVG_TO_PNG_HACK),
         'width': str(length * cell_width),
         'height': str(cell_height)
     }
@@ -420,19 +436,19 @@ def resize_template(template, geometry, cell_width, cell_height):
             raise TemplateError('Missing "viewBox" for element "{}"'.format(element))
 
         vb_min_x, vb_min_y, vb_width, vb_height = [int(n) for n in viewbox]
-        vb_width += cell_width * (columns - template_columns)
-        vb_height += cell_height * (rows - template_rows)
+        vb_width = max(SCREEN_WIDTH, cell_width * columns)
+        vb_height = max(SCREEN_HEIGHT, cell_height * rows)
         element.attrib['viewBox'] = ' '.join(map(str, (vb_min_x, vb_min_y, vb_width, vb_height)))
 
         scalable_attributes = {
-            'width': cell_width * (columns - template_columns),
-            'height': cell_height * (rows - template_rows)
+            'width': vb_width,
+            'height': vb_height
         }
 
-        for attribute, delta in scalable_attributes.items():
+        for attribute, size in scalable_attributes.items():
             if attribute in element.attrib:
                 try:
-                    element.attrib[attribute] = str(int(element.attrib[attribute]) + delta)
+                    element.attrib[attribute] = str(size)
                 except ValueError:
                     raise TemplateError('"{}" attribute of {} must be in user units'
                                         .format(attribute, element))
@@ -511,9 +527,9 @@ def _embed_css(root, timings=None, animation_duration=None):
                             'in "defs"')
 
     css_body = """#screen {
-                font-family: 'DejaVu Sans Mono', monospace;
+                font-family: 'DejaVu Sans Mono for Powerline', monospace;
                 font-style: normal;
-                font-size: 14px;
+                font-size: 41px;
             }
 
         text {
@@ -584,9 +600,9 @@ def _embed_waapi(root, timings=None, animation_duration=None):
 
     css_body = """
         #screen {
-            font-family: 'DejaVu Sans Mono', monospace;
+            font-family: 'DejaVu Sans Mono for Powerline', monospace;
             font-style: normal;
-            font-size: 14px;
+            font-size: 41px;
         }
 
         text {
