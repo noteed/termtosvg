@@ -1,4 +1,5 @@
 import copy
+import datetime
 import io
 import os.path
 import pkgutil
@@ -161,11 +162,25 @@ def render_animation(frames, geometry, filename, template,
 
 def render_still_frames(frames, geometry, directory, template,
                         cell_width=CELL_WIDTH, cell_height=CELL_HEIGHT):
+    """
+    In addition to writing each frame to its own SVG file, this function also
+    writes a listing.txt file suitable for ffmpeg `-f concat` option.
+    """
     root = _render_preparation(geometry, template, cell_width, cell_height)
 
     frame_generator = _render_still_frames(frames, root, cell_width, cell_height)
-    for frame_count, frame_root in enumerate(frame_generator):
-        filename = os.path.join(directory, 'termtosvg_{:05}.svg'.format(frame_count))
+    listing_filename = os.path.join(directory, 'listing.txt')
+    for frame_count, frame_root, frame in frame_generator:
+        delta = datetime.timedelta(milliseconds=frame.duration)
+        duration = '00:00:{:02}.{:03}'.format(
+            delta.seconds, delta.microseconds // 1000)
+        with open(listing_filename, 'a' if frame_count else 'w') as listing_file:
+            # TODO Handle duration larger than seconds.
+            if not frame_count:
+                listing_file.write('ffconcat version 1.0\n')
+            listing_file.write('file {:05}.png\n'.format(frame_count))
+            listing_file.write('duration {}\n'.format(duration))
+        filename = os.path.join(directory, '{:05}.svg'.format(frame_count))
         with open(filename, 'wb') as output_file:
             output_file.write(etree.tostring(frame_root))
 
@@ -186,7 +201,7 @@ def _render_preparation(geometry, template, cell_width, cell_height):
 
 
 def _render_still_frames(frames, root, cell_width, cell_height):
-    for frame in frames:
+    for frame_count, frame in enumerate(frames):
         frame_group, frame_definitions = _render_timed_frame(
             offset=0,
             buffer=frame.buffer,
@@ -205,7 +220,7 @@ def _render_still_frames(frames, root, cell_width, cell_height):
         svg_screen_tag.append(frame_group)
 
         _embed_css(frame_root)
-        yield frame_root
+        yield frame_count, frame_root, frame
 
 
 def _render_animation(screen_height, frames, root, cell_width, cell_height):

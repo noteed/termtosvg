@@ -17,6 +17,9 @@ pixel-perfect when compared to the above command. So this requires using `-g
 I have added a new template based on the Spiderman color scheme that comes with
 Kitty.
 
+When writing individual frames, this also generates a file for ffmpeg `-f
+concat` feature: this allows to generate a video with accurate frame durations.
+
 
 # termtosvg
 termtosvg is a Unix terminal recorder written in Python that renders your command
