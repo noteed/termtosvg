@@ -90,19 +90,19 @@ class TestAnim(unittest.TestCase):
 
         rect_0, rect_3, rect_4, rect_6, rect_8, rect_9, rect_11 = sorted(rectangles, key=key)
 
-        self.assertEqual(rect_0.attrib['x'], '0')
+        self.assertEqual(rect_0.attrib['x'], str(0 + anim.BORDER_LEFT))
         self.assertEqual(rect_0.attrib['width'], '16')
         self.assertEqual(rect_0.attrib['height'], '1')
         self.assertEqual(rect_0.attrib['class'], 'red')
-        self.assertEqual(rect_3.attrib['x'], '24')
+        self.assertEqual(rect_3.attrib['x'], str(24 + anim.BORDER_LEFT))
         self.assertEqual(rect_3.attrib['width'], '8')
-        self.assertEqual(rect_4.attrib['x'], '32')
-        self.assertEqual(rect_6.attrib['x'], '48')
+        self.assertEqual(rect_4.attrib['x'], str(32 + anim.BORDER_LEFT))
+        self.assertEqual(rect_6.attrib['x'], str(48 + anim.BORDER_LEFT))
         self.assertEqual(rect_6.attrib['width'], '16')
         self.assertEqual(rect_6.attrib['class'], 'blue')
-        self.assertEqual(rect_8.attrib['x'], '64')
+        self.assertEqual(rect_8.attrib['x'], str(64 + anim.BORDER_LEFT))
         self.assertEqual(rect_8.attrib['class'], 'green')
-        self.assertEqual(rect_9.attrib['x'], '72')
+        self.assertEqual(rect_9.attrib['x'], str(72 + anim.BORDER_LEFT))
         self.assertEqual(rect_11.attrib['fill'], '#123456')
 
     def test__render_characters(self):
@@ -272,7 +272,7 @@ class TestAnim(unittest.TestCase):
         ]
 
         z = itertools.zip_longest(expected_texts_by_frame, frame_generator)
-        for count, (texts, frame) in enumerate(z):
+        for count, (texts, (_, frame, _)) in enumerate(z):
             with self.subTest(case='Frame #{}'.format(count)):
                 anim.validate_svg(io.BytesIO(etree.tostring(frame)))
                 self.assertEqual(texts, extract_text_content(frame))
