@@ -40,7 +40,7 @@ CELL_HEIGHT = 48
 
 # Offset for the buffer lines and rectangles, resulting in a border.
 # This can probably be replaced by a transform on the main `screen` element.
-BORDER_TOP = 151
+BORDER_TOP = 150
 BORDER_LEFT = 142
 
 # Hard-coded screen dimensions. This includes the above border. Set to a small
