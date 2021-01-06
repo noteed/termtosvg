@@ -7,6 +7,7 @@ PKG_TEMPLATE_PATH = 'data/templates'
 # by 150ms ('time termtosvg --help' execution time goes from 200ms to 350ms)
 DEFAULT_TEMPLATES_NAMES = [
     'base16_default_dark.svg',
+    'CLRS.svg',
     'dracula.svg',
     'gjm8_play.svg',
     'gjm8_single_loop.svg',
