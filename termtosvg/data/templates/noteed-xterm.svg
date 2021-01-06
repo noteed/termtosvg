@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" id="terminal" baseProfile="full" viewBox="0 0 656 325" width="656" version="1.1">
+    <defs>
+        <termtosvg:template_settings xmlns:termtosvg="https://github.com/nbedos/termtosvg">
+            <termtosvg:screen_geometry columns="82" rows="19"/>
+            <termtosvg:animation type="css"/>
+        </termtosvg:template_settings>
+        <style type="text/css" id="generated-style"></style>
+        <style type="text/css" id="user-style">
+            /* These are the (default?) colors of my XTerm / Vim.
+             */
+            .foreground {fill: #262626;}
+            .background {fill: #ffffff;}
+            .color0 {fill: #000000;}
+            .color1 {fill: #cd0000;} /* Python strings in Vim */
+            .color2 {fill: #32895c;}
+            .color3 {fill: #f96f1c;}
+            .color4 {fill: #0001ef;} /* Python comments in Vim */
+            .color5 {fill: #e733ce;} /* Python import keywords in Vim */
+            .color6 {fill: #32c2c0;}
+            .color7 {fill: #b2b2b2;}
+            .color8 {fill: #545753;}
+            .color9 {fill: #fb0416;}
+            .color10 {fill: #2cc631;}
+            .color11 {fill: #fcd627;}
+            .color12 {fill: #156ffe;}
+            .color13 {fill: #e800b0;}
+            .color14 {fill: #39d5ce;}
+            .color15 {fill: #ededec;}
+        </style>
+    </defs>
+    <svg id="screen" width="656" height="323" viewBox="0 0 656 323" preserveAspectRatio="xMidYMin slice"></svg>
+</svg>

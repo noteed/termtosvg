@@ -12,6 +12,7 @@ DEFAULT_TEMPLATES_NAMES = [
     'gjm8_play.svg',
     'gjm8_single_loop.svg',
     'gjm8.svg',
+    'noteed-xterm.svg',
     'powershell.svg',
     'progress_bar.svg',
     'putty.svg',
