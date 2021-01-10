@@ -14,6 +14,8 @@ from termtosvg import term
 
 TEMPLATE = pkgutil.get_data('termtosvg', '/data/templates/gjm8.svg')
 
+presets = anim.PRESETS["91x24"]
+
 
 def line(i):
     chars = []
@@ -82,27 +84,31 @@ class TestAnim(unittest.TestCase):
 
         rectangles = anim._render_line_bg_colors(screen_line=screen_line,
                                                  height=0,
-                                                 cell_height=1,
-                                                 cell_width=cell_width)
+                                                 presets=presets)
 
         def key(r):
             return r.attrib['x']
 
         rect_0, rect_3, rect_4, rect_6, rect_8, rect_9, rect_11 = sorted(rectangles, key=key)
 
-        self.assertEqual(rect_0.attrib['x'], str(0 + anim.BORDER_LEFT))
-        self.assertEqual(rect_0.attrib['width'], '16')
-        self.assertEqual(rect_0.attrib['height'], '1')
+        self.assertEqual(rect_0.attrib['x'], str(0 + presets["border_left"]))
+        self.assertEqual(rect_0.attrib['width'], str(2 * presets["cell_width"]))
+        self.assertEqual(rect_0.attrib['height'], str(presets["cell_height"]))
         self.assertEqual(rect_0.attrib['class'], 'red')
-        self.assertEqual(rect_3.attrib['x'], str(24 + anim.BORDER_LEFT))
-        self.assertEqual(rect_3.attrib['width'], '8')
-        self.assertEqual(rect_4.attrib['x'], str(32 + anim.BORDER_LEFT))
-        self.assertEqual(rect_6.attrib['x'], str(48 + anim.BORDER_LEFT))
-        self.assertEqual(rect_6.attrib['width'], '16')
+        self.assertEqual(rect_3.attrib['x'],
+            str(3 * presets["cell_width"] + presets["border_left"]))
+        self.assertEqual(rect_3.attrib['width'], str(presets["cell_width"]))
+        self.assertEqual(rect_4.attrib['x'],
+            str(4 * presets["cell_width"] + presets["border_left"]))
+        self.assertEqual(rect_6.attrib['x'],
+            str(6 * presets["cell_width"] + presets["border_left"]))
+        self.assertEqual(rect_6.attrib['width'], str(2 * presets["cell_width"]))
         self.assertEqual(rect_6.attrib['class'], 'blue')
-        self.assertEqual(rect_8.attrib['x'], str(64 + anim.BORDER_LEFT))
+        self.assertEqual(rect_8.attrib['x'],
+            str(8 * presets["cell_width"] + presets["border_left"]))
         self.assertEqual(rect_8.attrib['class'], 'green')
-        self.assertEqual(rect_9.attrib['x'], str(72 + anim.BORDER_LEFT))
+        self.assertEqual(rect_9.attrib['x'],
+            str(9 * presets["cell_width"] + presets["border_left"]))
         self.assertEqual(rect_11.attrib['fill'], '#123456')
 
     def test__render_characters(self):
@@ -202,8 +208,7 @@ class TestAnim(unittest.TestCase):
         for frame in frames:
             group, new_defs = anim._render_timed_frame(offset=0,
                                                        buffer=frame.buffer,
-                                                       cell_width=8,
-                                                       cell_height=17,
+                                                       presets=presets,
                                                        definitions={})
             all_definitions.update(new_defs)
 
@@ -224,7 +229,7 @@ class TestAnim(unittest.TestCase):
             }),
         ]
         _, filename = tempfile.mkstemp(prefix='termtosvg_', suffix='.svg')
-        anim.render_animation(frames, (80, 24), filename, TEMPLATE)
+        anim.render_animation(frames, (80, 24), filename, TEMPLATE, presets)
         with open(filename) as f:
             anim.validate_svg(f)
 
@@ -256,8 +261,8 @@ class TestAnim(unittest.TestCase):
             }),
         ]
 
-        root = anim._render_preparation((80, 24), TEMPLATE, 9, 17)
-        frame_generator = anim._render_still_frames(frames, root, 9, 17)
+        root = anim._render_preparation((80, 24), TEMPLATE, presets)
+        frame_generator = anim._render_still_frames(frames, root, presets)
 
         def extract_text_content(frame):
             svg_screen_elem = frame.find('.//{{{namespace}}}svg[@id="screen"]'
@@ -278,8 +283,15 @@ class TestAnim(unittest.TestCase):
                 self.assertEqual(texts, extract_text_content(frame))
 
     def test__embed_css(self):
-        test_cases = [{'animation_duration': None, 'timings': {1: 100, 2: 200}},
-                      {'animation_duration': 42, 'timings': {12: 100, 33: 200}} ]
+        test_cases = [
+            { 'animation_duration': None,
+              'timings': {1: 100, 2: 200},
+              'font_size': presets["font_size"]
+            },
+            { 'animation_duration': 42,
+              'timings': {12: 100, 33: 200},
+              'font_size': presets["font_size"]
+            }]
         for args in test_cases:
             with self.subTest(case=args['animation_duration']):
                 tree = etree.parse(io.BytesIO(TEMPLATE))

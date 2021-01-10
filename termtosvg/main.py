@@ -25,7 +25,6 @@ RECORD_USAGE = "termtosvg record [output_path] [-c COMMAND] [-g GEOMETRY] [-h]"
 RENDER_USAGE = """termtosvg render input_file [output_path] [-D DELAY]
                  [-m MIN_DURATION] [-M MAX_DURATION] [-s] [-t TEMPLATE] [-h]"""
 
-
 def integral_duration_validation(duration):
     if duration.lower().endswith('ms'):
         duration = duration[:-len('ms')]
@@ -76,6 +75,13 @@ def parse(args, templates, default_template, default_geometry, default_min_dur,
         metavar='COMMAND',
     )
 
+    preset_parser = argparse.ArgumentParser(add_help=False)
+    preset_parser.add_argument(
+        '-p', '--preset',
+        help='Use a preset corresponding to the given geometry. ',
+        action='store_true'
+    )
+
     still_frames_parser = argparse.ArgumentParser(add_help=False)
     still_frames_parser.add_argument(
         '-s', '--still-frames',
@@ -93,6 +99,7 @@ def parse(args, templates, default_template, default_geometry, default_min_dur,
         default=default_template,
         metavar='TEMPLATE'
     )
+
     geometry_parser = argparse.ArgumentParser(add_help=False)
     geometry_parser.add_argument(
         '-g', '--screen-geometry',
@@ -104,6 +111,7 @@ def parse(args, templates, default_template, default_geometry, default_min_dur,
         default=default_geometry,
         type=termtosvg.config.validate_geometry
     )
+
     min_duration_parser = argparse.ArgumentParser(add_help=False)
     min_duration_parser.add_argument(
         '-m', '--min-frame-duration',
@@ -143,10 +151,11 @@ def parse(args, templates, default_template, default_geometry, default_min_dur,
     parser = argparse.ArgumentParser(
         prog='termtosvg',
         parents=[command_parser, loop_delay_parser, geometry_parser, min_duration_parser,
-                 max_duration_parser, still_frames_parser, template_parser],
+                 max_duration_parser, preset_parser, still_frames_parser, template_parser],
         usage=USAGE,
         epilog=EPILOG
     )
+
     parser.add_argument(
         'output_path',
         nargs='?',
@@ -156,6 +165,7 @@ def parse(args, templates, default_template, default_geometry, default_min_dur,
              'will be automatically generated.',
         metavar='output_path'
     )
+
     if args:
         if args[0] == 'record':
             parser = argparse.ArgumentParser(
@@ -175,7 +185,7 @@ def parse(args, templates, default_template, default_geometry, default_min_dur,
         if args[0] == 'render':
             parser = argparse.ArgumentParser(
                 description='render an asciicast recording as an SVG animation',
-                parents=[loop_delay_parser,  min_duration_parser,
+                parents=[loop_delay_parser, min_duration_parser,
                          max_duration_parser, still_frames_parser, template_parser],
                 usage=RENDER_USAGE
             )
@@ -228,9 +238,11 @@ def render_subcommand(still, template, cast_filename, output_path,
     asciicast_records = read_records(cast_filename)
     geometry, frames = timed_frames(asciicast_records, min_frame_duration,
                                     max_frame_duration, loop_delay)
+    presets = termtosvg.anim.PRESETS["91x24"]
+    presets["columns"], presets["lines"] = geometry
     if still:
         termtosvg.anim.render_still_frames(frames=frames,
-                                           geometry=geometry,
+                                           presets=presets,
                                            directory=output_path,
                                            template=template)
         logger.info('Rendering ended, SVG frames are located at {}'
@@ -239,11 +251,12 @@ def render_subcommand(still, template, cast_filename, output_path,
         termtosvg.anim.render_animation(frames=frames,
                                         geometry=geometry,
                                         filename=output_path,
-                                        template=template)
+                                        template=template,
+                                        presets=presets)
         logger.info('Rendering ended, SVG animation is {}'.format(output_path))
 
 
-def record_render_subcommand(process_args, still, template, geometry,
+def record_render_subcommand(process_args, preset, still, template, geometry,
                              input_fileno, output_fileno, output_path,
                              min_frame_duration, max_frame_duration,
                              loop_delay):
@@ -252,25 +265,30 @@ def record_render_subcommand(process_args, still, template, geometry,
 
     logger.info('Recording started, enter "exit" command or Control-D to end')
     if geometry is None:
-        columns, lines = get_terminal_size(output_fileno)
+        geometry = get_terminal_size(output_fileno)
+        presets = termtosvg.anim.PRESETS["91x24"]
+        presets["columns"], presets["lines"] = geometry
     else:
-        columns, lines = geometry
+        presets = termtosvg.anim.PRESETS["91x24"]
+        presets["columns"], presets["lines"] = geometry
     with TerminalMode(input_fileno):
         # Do not write anything to stdout (print, logger...) while in this
         # context manager if the output of the process is set to stdout. We
         # do not want two processes writing to the same terminal.
-        asciicast_records = record(process_args, columns, lines, input_fileno,
+        asciicast_records = record(process_args,
+                                   presets["columns"], presets["lines"],
+                                   input_fileno,
                                    output_fileno)
         geometry, frames = timed_frames(asciicast_records, min_frame_duration,
                                         max_frame_duration, loop_delay)
 
         if still:
-            termtosvg.anim.render_still_frames(frames, geometry, output_path,
+            termtosvg.anim.render_still_frames(frames, presets, output_path,
                                                template)
             end_msg = 'Rendering ended, SVG frames are located at {}'
         else:
             termtosvg.anim.render_animation(frames, geometry, output_path,
-                                            template)
+                                            template, presets)
             end_msg = 'Rendering ended, SVG animation is {}'
 
     logger.info(end_msg.format(output_path))
@@ -342,7 +360,8 @@ def main(args=None, input_fileno=None, output_fileno=None):
                         raise
 
         process_args = shlex.split(args.command)
-        record_render_subcommand(process_args, args.still_frames, args.template,
+        record_render_subcommand(process_args, args.preset,
+                                 args.still_frames, args.template,
                                  args.screen_geometry, input_fileno,
                                  output_fileno, output_path,
                                  args.min_frame_duration,

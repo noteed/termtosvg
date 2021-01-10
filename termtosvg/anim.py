@@ -38,20 +38,29 @@ BG_RECT_TAG = etree.Element('rect', _BG_RECT_TAG_ATTRIBUTES)
 CELL_WIDTH = 25
 CELL_HEIGHT = 48
 
+PRESETS = {
+  "91x24": {
+    "columns": 91,
+    "lines": 24,
+    "font_size": 41,
+    "cell_width": 25,
+    "cell_height": 48,
 # Offset for the buffer lines and rectangles, resulting in a border.
 # This can probably be replaced by a transform on the main `screen` element.
-BORDER_TOP = 150
-BORDER_LEFT = 142
-
+    "border_top": 150,
+    "border_left": 142,
 # Hard-coded screen dimensions. This includes the above border. Set to a small
 # value if you just want the character cells without border.
-SCREEN_WIDTH = 2560
-SCREEN_HEIGHT = 1440
-
+    "screen_width": 2560,
+    "screen_height": 1440,
 # Without this, SVGs are rendered correctly, but their conversion to PNGs
 # result in a cursor a few pixels to low. This is used to push it a bit upwards
 # when we know we will convert to PNGs anyway.
-SVG_TO_PNG_HACK = -7
+    "svg_to_png_hack": -7
+  }
+}
+
+PRESETS["82x19"] = PRESETS["91x24"] # TODO
 
 # The number of character cells to leave when placing successive frames
 # so content does not bleed into adjacent frames
@@ -150,25 +159,24 @@ class ConsecutiveWithSameAttributes:
         return self.group_index, key_attributes
 
 
-def render_animation(frames, geometry, filename, template,
-                     cell_width=CELL_WIDTH, cell_height=CELL_HEIGHT):
-    root = _render_preparation(geometry, template, cell_width, cell_height)
+def render_animation(frames, geometry, filename, template, presets):
+    root = _render_preparation(geometry, template, presets)
     _, screen_height = geometry
-    root = _render_animation(screen_height, frames, root, cell_width, cell_height)
+    root = _render_animation(frames, root, presets)
 
     with open(filename, 'wb') as output_file:
         output_file.write(etree.tostring(root))
 
 
-def render_still_frames(frames, geometry, directory, template,
-                        cell_width=CELL_WIDTH, cell_height=CELL_HEIGHT):
+def render_still_frames(frames, presets, directory, template):
     """
     In addition to writing each frame to its own SVG file, this function also
     writes a listing.txt file suitable for ffmpeg `-f concat` option.
     """
-    root = _render_preparation(geometry, template, cell_width, cell_height)
+    geometry = (presets["columns"], presets["lines"])
+    root = _render_preparation(geometry, template, presets)
 
-    frame_generator = _render_still_frames(frames, root, cell_width, cell_height)
+    frame_generator = _render_still_frames(frames, root, presets)
     listing_filename = os.path.join(directory, 'listing.txt')
     for frame_count, frame_root, frame in frame_generator:
         delta = datetime.timedelta(milliseconds=frame.duration)
@@ -185,9 +193,9 @@ def render_still_frames(frames, geometry, directory, template,
             output_file.write(etree.tostring(frame_root))
 
 
-def _render_preparation(geometry, template, cell_width, cell_height):
+def _render_preparation(geometry, template, presets):
     # Read header record and add the corresponding information to the SVG
-    root = resize_template(template, geometry, cell_width, cell_height)
+    root = resize_template(template, geometry, presets)
     svg_screen_tag = root.find('.//{{{namespace}}}svg[@id="screen"]'
                                .format(namespace=SVG_NS))
     if svg_screen_tag is None:
@@ -200,13 +208,12 @@ def _render_preparation(geometry, template, cell_width, cell_height):
     return root
 
 
-def _render_still_frames(frames, root, cell_width, cell_height):
+def _render_still_frames(frames, root, presets):
     for frame_count, frame in enumerate(frames):
         frame_group, frame_definitions = _render_timed_frame(
             offset=0,
             buffer=frame.buffer,
-            cell_height=cell_height,
-            cell_width=cell_width,
+            presets=presets,
             definitions={}
         )
         frame_root = copy.deepcopy(root)
@@ -219,11 +226,11 @@ def _render_still_frames(frames, root, cell_width, cell_height):
             tree_defs.append(definition)
         svg_screen_tag.append(frame_group)
 
-        _embed_css(frame_root)
+        _embed_css(frame_root, presets["font_size"])
         yield frame_count, frame_root, frame
 
 
-def _render_animation(screen_height, frames, root, cell_width, cell_height):
+def _render_animation(frames, root, presets):
     svg_screen_tag = root.find('.//{{{namespace}}}svg[@id="screen"]'
                                .format(namespace=SVG_NS))
     if svg_screen_tag is None:
@@ -238,13 +245,12 @@ def _render_animation(screen_height, frames, root, cell_width, cell_height):
         # To prevent line jumping up and down by one pixel between two frames,
         # add h % 2 so that offset is an even number.  (issue noticed in
         # Firefox only)
-        h = screen_height + FRAME_CELL_SPACING
-        offset = frame_count * (h + h % 2) * cell_height
+        h = presets["screen_height"] + FRAME_CELL_SPACING
+        offset = frame_count * (h + h % 2) * presets["cell_height"]
         frame_group, frame_definitions = _render_timed_frame(
             offset=offset,
             buffer=frame.buffer,
-            cell_height=cell_height,
-            cell_width=cell_width,
+            presets=presets,
             definitions=definitions
         )
 
@@ -258,11 +264,11 @@ def _render_animation(screen_height, frames, root, cell_width, cell_height):
         tree_defs.append(definition)
 
     svg_screen_tag.append(screen_view)
-    _add_animation(root, timings, animation_duration)
+    _add_animation(root, presets["font_size"], timings, animation_duration)
     return root
 
 
-def _add_animation(root, timings, animation_duration):
+def _add_animation(root, font_size, timings, animation_duration):
     animators = {
         'css': _embed_css,
         'waapi': _embed_waapi,
@@ -282,10 +288,10 @@ def _add_animation(root, timings, animation_duration):
         raise TemplateError("Attribute 'type' of element 'animation' must be one of {}"
                             .format(', '.join(animators.keys())))
 
-    f(root, timings, animation_duration)
+    f(root, font_size, timings, animation_duration)
 
 
-def _render_timed_frame(offset, buffer, cell_height, cell_width, definitions):
+def _render_timed_frame(offset, buffer, presets, definitions):
     """Return a group element containing an SVG version of the provided frame.
 
     :param buffer: 2D array of CharacterCells
@@ -303,8 +309,7 @@ def _render_timed_frame(offset, buffer, cell_height, cell_width, definitions):
             tags, new_definitions = _render_line(offset,
                                                  row_number,
                                                  buffer[row_number],
-                                                 cell_height,
-                                                 cell_width,
+                                                 presets,
                                                  current_definitions)
             for tag in tags:
                 frame_group_tag.append(tag)
@@ -313,15 +318,14 @@ def _render_timed_frame(offset, buffer, cell_height, cell_width, definitions):
     return frame_group_tag, group_definitions
 
 
-def _render_line(offset, row_number, row, cell_height, cell_width, definitions):
+def _render_line(offset, row_number, row, presets, definitions):
     tags = _render_line_bg_colors(screen_line=row,
-                                  height=offset + row_number * cell_height,
-                                  cell_height=cell_height,
-                                  cell_width=cell_width)
+                                  height=offset + row_number * presets["cell_height"],
+                                  presets=presets)
 
     # Group text elements for the current line into text_group_tag
     text_group_tag = etree.Element('g')
-    text_tags = _render_characters(row, cell_width)
+    text_tags = _render_characters(row, presets["cell_width"])
     for tag in text_tags:
         text_group_tag.append(tag)
 
@@ -339,20 +343,20 @@ def _render_line(offset, row_number, row, cell_height, cell_width, definitions):
     # Add a reference to the definition of text_group_tag with a 'use' tag
     use_attributes = {
         '{{{}}}href'.format(XLINK_NS): '#{}'.format(group_id),
-        'x': str(BORDER_LEFT),
-        'y': str(offset + row_number * cell_height + BORDER_TOP),
+        'x': str(presets["border_left"]),
+        'y': str(offset + row_number * presets["cell_height"] + presets["border_top"]),
     }
     tags.append(etree.Element('use', use_attributes))
 
     return tags, new_definitions
 
 
-def _make_rect_tag(column, length, height, cell_width, cell_height, background_color):
+def _make_rect_tag(column, length, height, presets, background_color):
     attributes = {
-        'x': str(column * cell_width + BORDER_LEFT),
-        'y': str(height + BORDER_TOP + SVG_TO_PNG_HACK),
-        'width': str(length * cell_width),
-        'height': str(cell_height)
+        'x': str(column * presets["cell_width"] + presets["border_left"]),
+        'y': str(height + presets["border_top"] + presets["svg_to_png_hack"]),
+        'width': str(length * presets["cell_width"]),
+        'height': str(presets["cell_height"])
     }
 
     if background_color.startswith('#'):
@@ -363,7 +367,7 @@ def _make_rect_tag(column, length, height, cell_width, cell_height, background_c
     return rect_tag
 
 
-def _render_line_bg_colors(screen_line, height, cell_height, cell_width):
+def _render_line_bg_colors(screen_line, height, presets):
     """Return a list of 'rect' tags representing the background of 'screen_line'
 
     If consecutive cells have the same background color, a single 'rect' tag is
@@ -386,8 +390,7 @@ def _render_line_bg_colors(screen_line, height, cell_height, cell_width):
             column,
             wcswidth(''.join(t[1].text for t in group)),
             height,
-            cell_width,
-            cell_height,
+            presets,
             attributes['background_color']
         ) for (column, attributes), group in groupby(non_default_bg_cells, key)]
 
@@ -441,7 +444,7 @@ def _render_characters(screen_line, cell_width):
     return text_tags
 
 
-def resize_template(template, geometry, cell_width, cell_height):
+def resize_template(template, geometry, presets):
     """Resize template based on the number of rows and columns of the terminal"""
     def scale(element, template_columns, template_rows, columns, rows):
         """Resize viewbox based on the number of rows and columns of the terminal"""
@@ -451,8 +454,8 @@ def resize_template(template, geometry, cell_width, cell_height):
             raise TemplateError('Missing "viewBox" for element "{}"'.format(element))
 
         vb_min_x, vb_min_y, vb_width, vb_height = [int(n) for n in viewbox]
-        vb_width = max(SCREEN_WIDTH, cell_width * columns)
-        vb_height = max(SCREEN_HEIGHT, cell_height * rows)
+        vb_width = max(presets["screen_width"], presets["cell_width"] * columns)
+        vb_height = max(presets["screen_height"], presets["cell_height"] * rows)
         element.attrib['viewBox'] = ' '.join(map(str, (vb_min_x, vb_min_y, vb_width, vb_height)))
 
         scalable_attributes = {
@@ -530,7 +533,7 @@ def validate_template(name, templates):
         raise TemplateError('Invalid template') from exc
 
 
-def _embed_css(root, timings=None, animation_duration=None):
+def _embed_css(root, font_size, timings=None, animation_duration=None):
     try:
         style = root.find('.//{{{ns}}}defs/{{{ns}}}style[@id="generated-style"]'
                           .format(ns=SVG_NS))
@@ -541,17 +544,18 @@ def _embed_css(root, timings=None, animation_duration=None):
         raise TemplateError('Missing <style id="generated-style" ...> element '
                             'in "defs"')
 
-    css_body = """#screen {
+    css_body = """
+        #screen {{
                 font-family: 'DejaVu Sans Mono for Powerline', monospace;
                 font-style: normal;
-                font-size: 41px;
-            }
+                font-size: {font_size}px;
+            }}
 
-        text {
+        text {{
             dominant-baseline: text-before-edge;
             white-space: pre;
-        }
-    """
+        }}
+    """.format(font_size=font_size)
 
     if animation_duration is None or timings is None:
         style.text = etree.CDATA(css_body)
@@ -602,7 +606,7 @@ def _embed_css(root, timings=None, animation_duration=None):
     return root
 
 
-def _embed_waapi(root, timings=None, animation_duration=None):
+def _embed_waapi(root, font_size, timings=None, animation_duration=None):
     try:
         style = root.find('.//{{{ns}}}defs/{{{ns}}}style[@id="generated-style"]'
                           .format(ns=SVG_NS))
@@ -614,17 +618,17 @@ def _embed_waapi(root, timings=None, animation_duration=None):
                             'in "defs"')
 
     css_body = """
-        #screen {
+        #screen {{
             font-family: 'DejaVu Sans Mono for Powerline', monospace;
             font-style: normal;
-            font-size: 41px;
-        }
+            font-size: {font_size}px;
+        }}
 
-        text {
+        text {{
             dominant-baseline: text-before-edge;
             white-space: pre;
-        }
-    """
+        }}
+    """.format(font_size=font_size)
 
     style.text = etree.CDATA(css_body)
 
