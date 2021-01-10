@@ -60,6 +60,14 @@ PRESETS = {
   }
 }
 
+PRESETS["82x21"] = PRESETS["91x24"]
+PRESETS["82x21"]["font_size"] = 47
+PRESETS["82x21"]["cell_width"] = 28
+PRESETS["82x21"]["cell_height"] = 55
+PRESETS["82x21"]["border_top"] = 141
+PRESETS["82x21"]["border_left"] = 132
+PRESETS["82x21"]["svg_to_png_hack"] = -8.5
+
 PRESETS["82x19"] = PRESETS["91x24"] # TODO
 
 # The number of character cells to leave when placing successive frames
